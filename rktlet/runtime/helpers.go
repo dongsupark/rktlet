@@ -19,6 +19,7 @@ package runtime
 import (
 	"fmt"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -232,12 +233,31 @@ func generateAppAddCommand(req *runtimeApi.CreateContainerRequest, imageID strin
 		return nil, err
 	}
 
+	// Get log path from create container request.
+	var logPath string
+	if req.Config.LogPath == "" {
+		logPath = fmt.Sprintf("%s_0.log", appName)
+		glog.Warningf("log path not specified in container config, which shouldn't happen when running rktlet with a real kubernetes installation, setting it to %s", logPath)
+	} else {
+		logPath = req.Config.LogPath
+	}
+
 	// TODO(yifan): Split the function into sub-functions.
 	// Generate the command and arguments for 'rkt app add'.
-	cmd := []string{"app", "add", req.PodSandboxId, imageID}
+	cmd := []string{
+		"app",
+		"add",
+		req.PodSandboxId,
+		imageID,
+		fmt.Sprintf("--annotation=coreos.com/rkt/experiment/kubernetes-log-path=%s", logPath),
+	}
 
 	// Add app name
 	cmd = append(cmd, "--name="+appName)
+
+	cmd = append(cmd, "--stdin=stream")
+	cmd = append(cmd, "--stdout=stream")
+	cmd = append(cmd, "--stderr=stream")
 
 	// Add annotations and labels.
 	for _, anno := range annotations {
@@ -392,6 +412,19 @@ func generateAppSandboxCommand(req *runtimeApi.RunPodSandboxRequest, uuidfile, s
 	if val, ok := req.Config.Annotations[k8sRktStage1NameAnno]; ok {
 		stage1Name = val
 	}
+
+	// Get log directory from run pod sandbox request.
+	var logDirectory string
+	if req.Config.LogDirectory == "" {
+		logDirectory = path.Join("/var/log/pods", req.Config.Metadata.Uid)
+		glog.Warningf("log directory not specified in sandbox config, which shouldn't happen when running rktlet with a real kubernetes installation, setting it to %s", logDirectory)
+		os.MkdirAll(logDirectory, 0770)
+	} else {
+		logDirectory = req.Config.LogDirectory
+	}
+
+	cmd = append(cmd, "--annotation=coreos.com/rkt/experiment/logmode=k8s-plain")
+	cmd = append(cmd, "--annotation=coreos.com/rkt/experiment/kubernetes-log-dir="+logDirectory)
 
 	if stage1Name != "" {
 		cmd = append(cmd, "--stage1-name="+stage1Name)
