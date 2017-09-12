@@ -228,10 +228,20 @@ func generateAppAddCommand(req *runtimeApi.CreateContainerRequest, imageID strin
 
 	// TODO(yifan): Split the function into sub-functions.
 	// Generate the command and arguments for 'rkt app add'.
-	cmd := []string{"app", "add", req.PodSandboxId, imageID}
+	cmd := []string{
+		"app",
+		"add",
+		req.PodSandboxId,
+		imageID,
+		fmt.Sprintf("--annotation=coreos.com/rkt/experiment/kubernetes-log-path=%s", req.Config.LogPath),
+	}
 
 	// Add app name
 	cmd = append(cmd, "--name="+appName)
+
+	cmd = append(cmd, "--stdin=stream")
+	cmd = append(cmd, "--stdout=stream")
+	cmd = append(cmd, "--stderr=stream")
 
 	// Add annotations and labels.
 	for _, anno := range annotations {
@@ -386,6 +396,9 @@ func generateAppSandboxCommand(req *runtimeApi.RunPodSandboxRequest, uuidfile, s
 	if val, ok := req.Config.Annotations[k8sRktStage1NameAnno]; ok {
 		stage1Name = val
 	}
+
+	cmd = append(cmd, "--annotation=coreos.com/rkt/experiment/logmode=k8s-plain")
+	cmd = append(cmd, "--annotation=coreos.com/rkt/experiment/kubernetes-log-dir="+req.Config.LogDirectory)
 
 	if stage1Name != "" {
 		cmd = append(cmd, "--stage1-name="+stage1Name)
