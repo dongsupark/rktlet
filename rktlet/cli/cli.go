@@ -99,6 +99,7 @@ func getFlagFormOfStruct(strt interface{}) (flags []string) {
 type CLIConfig struct {
 	Debug bool `flag:"debug"`
 
+	Dir             string `flag:"dir"`
 	LocalConfigDir  string `flag:"local-config"`
 	UserConfigDir   string `flag:"user-config"`
 	SystemConfigDir string `flag:"system-config"`
@@ -163,10 +164,8 @@ func (c *cli) Command(subcmd string, args ...string) []string {
 // TODO(tmrts): implement CLI with timeout
 func NewRktCLI(rktPath string, exec utilexec.Interface, cfg CLIConfig) CLI {
 	// this can be removed once 'app' is stable in rkt
-	if err := os.Setenv("RKT_EXPERIMENT_APP", "true"); err != nil {
-		panic(err)
-	}
-	if err := os.Setenv("RKT_EXPERIMENT_ATTACH", "true"); err != nil {
+	err := os.Setenv("RKT_EXPERIMENT_APP", "true")
+	if err != nil {
 		panic(err)
 	}
 	return &cli{rktPath: rktPath, config: cfg, execer: exec, globalFlags: getFlagFormOfStruct(cfg)}
